@@ -18,9 +18,12 @@ public class Main {
     private static Direction curDirection;
     private static Direction prevDirection;
 
+    private static List<BoardPoint> prevPoints = new ArrayList<>();
+
     public static void main(String[] args) throws URISyntaxException, IOException {
         SnakeBattleClient client = new SnakeBattleClient(SERVER_ADDRESS);
         client.run(gameBoard -> {
+            tryResetPrevPoint(gameBoard);
             SnakeAction snakeAction = moveToFirstBestCell(gameBoard);
 
             if (curDirection != null) {
@@ -34,6 +37,17 @@ public class Main {
         System.in.read();
 
         client.initiateExit();
+    }
+
+    private static void tryResetPrevPoint(GameBoard board) {
+        BoardPoint head = board.getMyHead();
+        BoardElement headElement = board.getElementAt(head);
+        if (headElement == null) {
+            return;
+        }
+        if (headElement.equals(START_FLOOR)) {
+            prevPoints.clear();
+        }
     }
 
     /************
@@ -55,6 +69,7 @@ public class Main {
         if (firstDirection != null) {
             Direction checkedDirection = gameBoard.checkNextPointIsTrap(firstDirection);
             log.debug(NONE.name() + " on " + firstDirection.name() + " Go to " + checkedDirection.name());
+            refreshCurPoints(myHead, checkedDirection);
             return new SnakeAction(false, checkedDirection);
         }
         /**
@@ -67,11 +82,20 @@ public class Main {
         Direction direction = gameBoard.searchNearestGoodStepDir(curDirection);
         if (direction != null && gameBoard.isAcceptable(direction)) {
             log.debug("Direction to good: " + direction.toString());
-            // стоит идти до ништяка
-            log.debug(direction.toString() + " is acceptable");
             // как обойти ловушку
             Direction checkedDirection = gameBoard.checkNextPointIsTrap(direction);
+            // TODO: обнаружение петель
+            BoardPoint nextPoint = neighborPointByDir(myHead, checkedDirection);
+            if (isLoop(nextPoint)) {
+                Direction directionOpposite = oppositeDirection(checkedDirection);
+                if (gameBoard.isAcceptable(neighborPointByDir(myHead, directionOpposite))) {
+                    refreshCurPoints(gameBoard.getMyHead(), checkedDirection);
+                    return new SnakeAction(false, directionOpposite);
+                }
+            }
+
             log.debug("Good " + " on " + direction.name() + " Go to " + checkedDirection.name());
+            refreshCurPoints(myHead, checkedDirection);
             return new SnakeAction(false, checkedDirection);
         }
 
@@ -82,16 +106,53 @@ public class Main {
         if (noneDirection != null) {
             Direction checkedDirection = gameBoard.checkNextPointIsTrap(noneDirection);
             log.debug(NONE.name() + " on " + noneDirection.name() + " Go to " + checkedDirection.name());
+            refreshCurPoints(myHead, checkedDirection);
             return new SnakeAction(false, checkedDirection);
         }
 
         return new SnakeAction(true, Direction.STOP);
     }
 
-    public static Direction randomDirection() {
+    private static Direction randomDirection() {
         var random = new Random(System.currentTimeMillis());
         Direction dir = Direction.values()[random.nextInt(Direction.values().length)];
         // var act       = random.nextInt() % 2 == 0;
         return dir;
+    }
+
+    private static BoardPoint neighborPointByDir(BoardPoint head, Direction direction) {
+        BoardPoint pointRight = head.shiftRight();
+        BoardPoint pointUp = head.shiftTop();
+        BoardPoint pointLeft = head.shiftLeft();
+        BoardPoint pointDown = head.shiftBottom();
+        Map<Direction, BoardPoint> dirToPoints = new HashMap<>() {{
+            put(Direction.RIGHT, pointRight);
+            put(Direction.LEFT, pointLeft);
+            put(Direction.DOWN, pointDown);
+            put(Direction.UP, pointUp);
+        }};
+        return dirToPoints.get(direction);
+    }
+
+    private static void refreshCurPoints(BoardPoint head, Direction direction) {
+        BoardPoint nextPoint = neighborPointByDir(head, direction);
+        if (prevPoints.size() > 6) {
+            prevPoints.remove(0);
+        }
+        prevPoints.add(nextPoint);
+    }
+
+    private static boolean isLoop(BoardPoint nextPoint) {
+        return prevPoints.contains(nextPoint);
+    }
+
+    private static Direction oppositeDirection(Direction direction) {
+        Map<Direction, Direction> oppositeDirs = new HashMap<>() {{
+            put(Direction.RIGHT, Direction.LEFT);
+            put(Direction.LEFT, Direction.RIGHT);
+            put(Direction.UP, Direction.DOWN);
+            put(Direction.DOWN, Direction.UP);
+        }};
+        return oppositeDirs.get(direction);
     }
 }

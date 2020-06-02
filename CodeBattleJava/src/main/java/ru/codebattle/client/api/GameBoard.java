@@ -11,14 +11,13 @@ import java.util.*;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.w3c.dom.bootstrap.DOMImplementationRegistry;
 
 @Slf4j
 public class GameBoard {
 
     private static final List<BoardElement> GOODS = asList(GOLD, APPLE, FLYING_PILL, FURY_PILL);
     private static final List<BoardElement> GOODS_WITH_POINTS = asList(GOLD, APPLE);
-    private static final List<BoardElement> GOODS_WITH_NONE = asList(GOLD, APPLE, FLYING_PILL, FURY_PILL, NONE);
+    private static final List<BoardElement> GOODS_WITH_NONE_AND_TAIL = asList(GOLD, APPLE, FLYING_PILL, FURY_PILL, NONE, TAIL_END_DOWN, TAIL_END_LEFT, TAIL_END_UP, TAIL_END_RIGHT, TAIL_INACTIVE);
 
     public GameBoard(String boardString) {
         this.boardString = boardString.replace("\n", "");
@@ -89,6 +88,8 @@ public class GameBoard {
     }
 
     public BoardElement getElementAt(BoardPoint point) {
+        if (point.isOutOfBoard(this.size()))
+                return null;
         return BoardElement.valueOf(boardString.charAt(getShiftByPoint(point)));
     }
 
@@ -334,7 +335,7 @@ public class GameBoard {
 
     public boolean isAcceptable(BoardPoint point) {
 //        Map<Direction, BoardPoint> directionBoardPointMap = neighborDirectionToPoints();
-        return !isTrap(point) && !isBadPoint(point) && !isYourBody(point);
+        return !isTrap(point) && !isBadPoint(point); // && !isYourBody(point);
     }
 
     private boolean isYourBody(BoardPoint point) {
@@ -358,7 +359,7 @@ public class GameBoard {
         if (point.isOutOfBoard(this.size())) {
             return true;
         }
-        return !(GOODS_WITH_NONE).contains(getElementAt(point));
+        return !(GOODS_WITH_NONE_AND_TAIL).contains(getElementAt(point));
     }
 
     /**
@@ -369,8 +370,11 @@ public class GameBoard {
      * Escapes: <>
      */
     private boolean trapIsUp(BoardPoint targetPoint) {
-        if (targetPoint.getY() < 1)
+        if (targetPoint.shiftRight().isOutOfBoard(size()) ||
+                targetPoint.shiftLeft().isOutOfBoard(size()) ||
+                targetPoint.shiftTop().isOutOfBoard(size())) {
             return false;
+        }
         return asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftRight()))
                 && asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftLeft()))
                 && asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftTop()));
@@ -383,8 +387,11 @@ public class GameBoard {
      * Escapes: ^ v
      */
     private boolean trapIsRight(BoardPoint targetPoint) {
-        if (targetPoint.getX() >= this.size() - 1)
+        if (targetPoint.shiftTop().isOutOfBoard(size()) ||
+                targetPoint.shiftBottom().isOutOfBoard(size()) ||
+                targetPoint.shiftRight().isOutOfBoard(size())) {
             return false;
+        }
         return asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftTop()))
                 && asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftBottom()))
                 && asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftRight()));
@@ -397,8 +404,11 @@ public class GameBoard {
      * Escapes: ^ v
      */
     private boolean trapIsLeft(BoardPoint targetPoint) {
-        if (targetPoint.getX() < 1)
+        if (targetPoint.shiftLeft().isOutOfBoard(size()) ||
+                targetPoint.shiftBottom().isOutOfBoard(size()) ||
+                targetPoint.shiftTop().isOutOfBoard(size())) {
             return false;
+        }
         return asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftLeft()))
                 && asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftBottom()))
                 && asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftTop()));
@@ -412,8 +422,11 @@ public class GameBoard {
      * Escapes: <>
      */
     private boolean trapIsDown(BoardPoint targetPoint) {
-        if (targetPoint.getY() >= this.size() - 1)
+        if (targetPoint.shiftLeft().isOutOfBoard(size()) ||
+                targetPoint.shiftBottom().isOutOfBoard(size()) ||
+                targetPoint.shiftRight().isOutOfBoard(size())) {
             return false;
+        }
         return asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftLeft()))
                 && asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftBottom()))
                 && asList(WALL, START_FLOOR, STONE).contains(getElementAt(targetPoint.shiftRight()));
